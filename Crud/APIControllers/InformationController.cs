@@ -10,7 +10,7 @@ using CrudApp.Models;
 using Crud.Helpers;
 using AutoMapper;
 using Crud.DTOs.InformationDTOs;
-
+using Crud.Repositories;
 namespace Crud.APIControllers
 {
     [APIKeyAuth]
@@ -20,37 +20,30 @@ namespace Crud.APIControllers
     {
         private readonly CrudContext _context;
         private readonly IMapper _mapper;
-
-
-        public InformationController(CrudContext context, IMapper mapper)
+        private readonly IGenericRepos _genericRepos;
+        public InformationController(CrudContext context, IMapper mapper, IGenericRepos genericRepos)
         {
             _context = context;
             _mapper = mapper;
+            _genericRepos = genericRepos;
         }
-
         // GET: api/Information
         [HttpGet]
         public async Task<ActionResult<List<InformationReadDTOs>>> GetInformation()
         {
-            if (_context.Information == null)
-            {
-                return NotFound();
-            }
-            var informations = await _context.Information.ToListAsync();
+            //if (_context.Information == null)
+            //{
+            //    return NotFound();
+            //}
+            var informations = await _genericRepos.GetAll<Information>();
             var records = _mapper.Map<List<InformationReadDTOs>>(informations);
             return records;
         }
-
         // GET: api/Information/5
         [HttpGet("{id}")]
         public async Task<ActionResult<InformationReadDTOs>> GetInformation(int id)
         {
-            if (_context.Information == null)
-            {
-                return NotFound();
-            }
-            var information = await _context.Information.FindAsync(id);
-
+            var information = await _genericRepos.GetOne<Information>(id);
             if (information == null)
             {
                 return NotFound();
@@ -58,13 +51,12 @@ namespace Crud.APIControllers
             var informationsDTO = _mapper.Map<InformationReadDTOs>(information);
             return informationsDTO;
         }
-
         // PUT: api/Information/5
         // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
         [HttpPut("{id}")]
         public async Task<IActionResult> PutInformation(int id, InformationUpdateDTOs informationUpdateDTOs)
         {
-            var info = await _context.Information.FindAsync(id);
+            var info = await _genericRepos.GetOne<Information>(id);
             if (id != informationUpdateDTOs.information_id)
             {
                 return BadRequest();
@@ -74,14 +66,10 @@ namespace Crud.APIControllers
                 throw new Exception($"Information {id} is not found.");
             }
             _mapper.Map(informationUpdateDTOs, info);
-            _context.Information.Update(info);
-            await _context.SaveChangesAsync();
+            info = await _genericRepos.Update<Information>(id, info);
             var infoReadDTO = _mapper.Map<InformationReadDTOs>(info);
             return Ok(infoReadDTO);
         }
-
-
-
         // POST: api/Information
         // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
         [HttpPost]
@@ -92,35 +80,37 @@ namespace Crud.APIControllers
                 return Problem("Entity set 'CrudContext.Information'  is null.");
             }
             var information = _mapper.Map<Information>(informationCreateDTOs);
-            _context.Information.Add(information);
-            await _context.SaveChangesAsync();
-            var informationsReadDTO = _mapper.Map<InformationReadDTOs>(information);
-            return CreatedAtAction("GetInformation", new { id = information.information_id }, informationsReadDTO);
+            await _genericRepos.Add(information);
+            if (information != null)
+            {
+                var informationsReadDTO = _mapper.Map<InformationReadDTOs>(information);
+                return CreatedAtAction("GetInformation", new { id = information.information_id }, informationsReadDTO);
+            }
+            return BadRequest();
         }
-
         // DELETE: api/Information/5
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteInformation(int id)
         {
-            if (_context.Information == null)
+
+            var infoID = await _genericRepos.GetOne<Information>(id);
+
+            if(infoID == null)
             {
                 return NotFound();
             }
-            var information = await _context.Information.FindAsync(id);
-            if (information == null)
+
+            try
             {
-                return NotFound();
+                await _genericRepos.Delete<Information>(id);
+                return NoContent();
             }
+            catch
+            {
+                return BadRequest();
 
-            _context.Information.Remove(information);
-            await _context.SaveChangesAsync();
-
-            return NoContent();
+            }
         }
-
-        private bool InformationExists(int id)
-        {
-            return (_context.Information?.Any(e => e.information_id == id)).GetValueOrDefault();
-        }
+        
     }
 }
