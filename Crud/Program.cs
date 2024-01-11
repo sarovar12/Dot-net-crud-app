@@ -1,10 +1,16 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Crud.Data;
+using Crud.Repositories;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Add services to the container.
+
+builder.Services.AddScoped<IGenericRepos, GenericRepos>();
 builder.Services.AddDbContext<CrudContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("CrudContext") ?? throw new InvalidOperationException("Connection string 'CrudContext' not found.")));
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("CROSPolicy",
@@ -21,6 +27,7 @@ builder.Services.AddCors(options =>
 
 // Add services to the container.
 builder.Services.AddControllersWithViews();
+builder.Services.AddAutoMapper(typeof(Program).Assembly);
 
 var app = builder.Build();
 
